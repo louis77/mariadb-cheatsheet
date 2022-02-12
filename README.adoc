@@ -1,0 +1,319 @@
+= MariaDB SQL Cheat Sheet
+Louis Brauer <louis@openbooking.ch>
+v0.0.1 2022-02-14 Initial draft
+:toc:
+:doctype: book
+
+Everything you need for your daily work with MariaDB.
+Tested with MariaDB version 10.6.5, but should work with most versions.
+
+
+== Use the CLI
+
+Use `mariadb` CLI for the best experience. List of all client commands:
+
+....
+MariaDB [(none)] help
+
+Note that all text commands must be first on line and end with ';'
+
+?         (\?) Synonym for `help'.
+clear     (\c) Clear the current input statement.
+connect   (\r) Reconnect to the server. Optional arguments are db and host.
+delimiter (\d) Set statement delimiter.
+ego       (\G) Send command to MariaDB server, display result vertically.
+exit      (\q) Exit mysql. Same as quit.
+go        (\g) Send command to MariaDB server.
+help      (\h) Display this help.
+notee     (\t) Don't write into outfile.
+print     (\p) Print current command.
+prompt    (\R) Change your mysql prompt.
+quit      (\q) Quit mysql.
+rehash    (\#) Rebuild completion hash.
+source    (\.) Execute an SQL script file. Takes a file name as an argument.
+status    (\s) Get status information from the server.
+tee       (\T) Set outfile [to_outfile]. Append everything into given outfile.
+use       (\u) Use another database. Takes database name as argument.
+charset   (\C) Switch to another charset. Might be needed for processing binlog with multi-byte charsets.
+warnings  (\W) Show warnings after every statement.
+nowarning (\w) Don't show warnings after every statement.
+....
+
+=== Switch to database
+
+[source,sql]
+----
+USE db1
+----
+
+To output result in columnar format (default), use default delimiter`;
+
+[source,sql]
+----
+SHOW TABLES;
+----
+
+To output results in record format, use ` \G` delimiter:`
+
+[source,sql]
+----
+SHOW CREATE TABLE tab1\G
+----
+
+Temporarly change default delimiter (used to create procedures, functions, events etc.) 
+
+[source,sql]
+----
+DELIMITER $$
+
+// do your stuff here
+// CREATE PROCEDURE .... END;
+$$
+
+DELIMITER ;
+----
+
+== DATABASES
+
+=== List all databases
+
+[source,sql]
+----
+SHOW DATABASES
+----
+
+=== Show database definition 
+(use `\G`)
+
+[source,sql]
+----
+SHOW CREATE DATABASE db1
+----
+
+=== Create database 
+(in MariaDB databases and schemas are the same thing)
+
+[source,sql]
+----
+CREATE DATABASE [IF NOT EXISTS] db1
+	-- optional
+	CHARACTER SET = 'utf8mb4'
+	COLLATE = 'utf8_general_bin'
+	COMMENT = 'my new database'
+----
+
+=== Re-create (drop + create) database (>= 10.1.3)
+
+[source,sql]
+----
+CREATE OR REPLACE DATABASE db1
+---- 
+
+=== Drop database
+
+[source,sql]
+----
+DROP DATABASE [IF EXISTS] db1
+----
+
+== PROCEDURES / FUNCTIONS
+
+=== Create stored procedure
+
+[source,sql]
+----
+CREATE PROCEDURE proc1 ()
+BEGIN
+    // do something here
+END;
+----
+
+=== Alter stored procedure's characteristics
+
+[source,sql]
+----
+ALTER PROCEDURE proc1
+  { CONTAINS SQL | NO SQL | READS SQL DATA | MODIFIES SQL DATA }
+  | SQL SECURITY { DEFINER | INVOKER }
+  | COMMENT 'string'
+----
+
+=== Replace stored procedure (>= 10.1.3)
+Using this will keep privileges granted for this procedure.
+
+[source,sql]
+----
+CREATE OR REPLACE PROCEDURE proc1 ()
+BEGIN
+    // do something new here
+END;
+----
+
+=== Control flow
+
+===# CASE
+
+Form 1:
+
+[source,sql]
+----
+SET @name = 'Louis';
+
+CASE @name
+    WHEN 'Hase' THEN ...
+    WHEN 'Louis' THEN ...
+    ELSE ...
+END CASE
+----
+
+Form 2:
+
+[source,sql]
+----
+SET @name = 'Louis';
+
+CASE 
+    WHEN @name = 'Louis' THEN ...
+    WHEN @age = 33 THEN ...
+    ELSE ...
+END CASE
+----
+
+===# IF
+
+As statement:
+
+[source,sql]
+----
+IF @name = 'Louis' THEN ...
+    ELSEIF @name = 'Hase' THEN ...
+    ELSE ...
+END IF;
+----
+
+As function (ternary if):
+
+[source,sql]
+----
+SELECT IF(@name = 'Louis', 'Yes it is him', 'No, it is not him');
+----
+
+
+
+== TABLES
+
+=== List all tables
+
+[source,sql]
+----
+SHOW TABLES
+----
+
+=== Show tables columns
+
+[source,sql]
+----
+DESC t1
+----
+
+=== Show CREATE defintion of table 
+(use `\G`)
+
+[source,sql]
+----
+SHOW CREATE TABLE t1
+----
+
+== COLUMNS
+
+=== Drop one or more columns
+
+[source,sql]
+----
+ALTER TABLE t1 DROP COLUMN col1, DROP COLUMN col2
+----
+
+=== Rename column and/or modify column definition
+
+[source,sql]
+----
+ALTER TABLE t1 CHANGE col1old col1new VARCHAR(50) NOT NULL
+----
+
+=== Modify column definition
+
+[source,sql]
+----
+ALTER TABLE t1 MODIFY col1 VARCHAR(50) NOT NULL
+----
+
+== INDEXES
+
+=== Add primary key to an existing table
+
+[source,sql]
+----
+ALTER TABLE t1 ADD PRIMARY KEY (col1, col2)
+----
+
+== SECURITY
+
+=== Create user
+
+Use `%` as wildcard hostname:
+
+[source,sql]
+----
+CREATE USER `username`@`hostname` IDENTIFIED BY 'password';
+----
+
+=== Change password for user
+
+[source,sql]
+---- 
+ALTER USER CURRENT_USER() IDENTIFIED BY 'some-new-password';
+----
+
+=== List grants for current user
+
+[source,sql]
+----
+// for current user
+SHOW GRANTS
+
+// for user
+SHOW GRANTS FOR user1
+SHOW GRANTS FOR user1@host1
+----
+
+=== Grant execute procedure to user/role
+
+[source,sql]
+----
+GRANT EXECUTE ON PROCEDURE sp1 TO user1@%;
+GRANT EXECUTE ON PROCEDURE sp1 TO role1;
+----
+
+== MONITOR
+
+=== List open connections and running queries
+
+[source,sql]
+----
+SHOW PROCESSLIST
+SHOW FULL PROCESSLIST
+----
+
+== OPTIMIZE
+
+=== Analyze columns of table and get optimal field recommendations
+
+[source,sql]
+----
+SELECT col1, col2 FROM t1 PROCEDURE ANALYZE()
+----
+
+== LICENSE
+
+© Louis Brauer, 2022. License: see `LICENSE`.
+
